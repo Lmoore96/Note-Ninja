@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Note Ninja — Staff Reading Trainer</title>
+<style>
+  :root{
+    --bg:#0f1221;
+    --panel:#171b2f;
+    --ink:#e8ecff;
+    --ink-dim:#b8c0ff;
+    --accent:#6ee7b7;
+    --accent-2:#60a5fa;
+    --danger:#ff6b6b;
+    --warn:#fbbf24;
+    --line:#a7b0ff38;
+    --btn:#222846;
+    --btn-hover:#2a3160;
+    --shadow: 0 10px 28px rgba(0,0,0,.35);
+    --gap: 14px;
+  }
+  html,body{height:100%;}
+  body{
+    margin:0; background:radial-gradient(1200px 700px at 5% -10%, #1f2450 0%, #0f1221 60%), var(--bg);
+    color:var(--ink); font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    line-height:1.35;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  header{
+    width:min(1100px, 96vw);
+    margin:18px 0 10px;
+    display:flex; align-items:center; gap:16px; justify-content:space-between;
+  }
+  h1{font-size: clamp(20px, 2.6vw, 30px); margin:0; letter-spacing:.3px}
+  .subtitle{color:var(--ink-dim); font-size:.95rem}
+  .wrap{
+    width:min(1100px, 96vw);
+    display:grid; grid-template-columns: 1.2fr .9fr; gap: var(--gap);
+  }
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.01));
+    border:1px solid #ffffff10; border-radius:14px; box-shadow:var(--shadow);
+  }
+  .board{ padding:18px; display:grid; grid-template-rows:auto 1fr auto; gap:10px; position:relative; overflow:hidden}
+  .hud{
+    display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px;
+  }
+  .hud .cell{
+    background: #0e1330; border:1px solid #ffffff14; border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:8px; min-height:42px;
+  }
+  .hud .label{color:var(--ink-dim); font-size:.82rem}
+  .hud .value{font-weight:700}
+
+  /* Staff panel */
+  .staff-wrap{ 
+    background: #0c1027; border:1px solid #ffffff10; border-radius:12px; position:relative; 
+    display:flex; align-items:center; justify-content:center; min-height:320px; overflow:hidden;
+  }
+  .clef-label{
+    position:absolute; left:14px; top:10px; color:var(--ink-dim); font-size:.9rem
+  }
+  .clef-glyph{
+    position:absolute; left:12px; top:40px; font-size:84px; line-height:1; opacity:.27;
+    font-family: "Bravura","Noto Music","DejaVu Sans","Segoe UI Symbol",system-ui;
+    user-select:none; pointer-events:none;
+  }
+  svg{ width:100%; height:100%; max-height:420px; }
+
+  /* Answer pad */
+  .pad{
+    display:grid; grid-template-columns: repeat(7, 1fr); gap:8px;
+    margin-top:12px;
+  }
+  .btn{
+    background:var(--btn); color:var(--ink); border:1px solid #ffffff1a; border-radius:12px; height:48px;
+    display:flex; align-items:center; justify-content:center; font-weight:700; letter-spacing:.5px;
+    cursor:pointer; transition:transform .06s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    box-shadow: inset 0 -6px 0 rgba(255,255,255,.03);
+  }
+  .btn:hover{ background:var(--btn-hover); transform: translateY(-1px); }
+  .btn:active{ transform: translateY(1px) scale(.99); }
+  .btn.good{ outline:2px solid var(--accent); }
+  .btn.bad{ outline:2px solid var(--danger); }
+
+  /* Side panel */
+  .side{ padding:16px; display:flex; flex-direction:column; gap:14px}
+  fieldset{
+    border:1px solid #ffffff14; border-radius:12px; padding:12px; background:#0e1330;
+  }
+  legend{ color:var(--ink-dim); padding:0 6px; }
+  .rows{display:grid; gap:10px}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .row label{ color:var(--ink-dim); font-size:.95rem}
+  select, input[type="number"], input[type="range"]{
+    width: 46%; background:#0b1030; color:var(--ink); border:1px solid #ffffff24; border-radius:10px; padding:6px 10px;
+  }
+  .toggle{
+    appearance:none; width:42px; height:24px; border-radius:999px; background:#3b3f66; position:relative; cursor:pointer; transition:background .2s;
+    border:1px solid #ffffff20;
+  }
+  .toggle::after{
+    content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:white; transition:transform .2s; box-shadow:0 2px 6px rgba(0,0,0,.35);
+  }
+  .toggle:checked{ background:#2dd4bf}
+  .toggle:checked::after{ transform: translateX(18px); }
+
+  .controls{ display:flex; gap:10px; }
+  .primary{
+    background:linear-gradient(180deg, #46f0c6, #18b39a); color:#06221e; border:none; padding:10px 14px; border-radius:12px; font-weight:800; cursor:pointer;
+    transition:transform .06s ease; box-shadow:0 8px 24px rgba(24,179,154,.35);
+  }
+  .primary:active{ transform: translateY(1px) scale(.99); }
+  .ghost{
+    background:transparent; color:var(--ink); border:1px dashed #ffffff3a; padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer;
+  }
+
+  .toast{
+    position:absolute; right:12px; bottom:10px; background:#0e1338; border:1px solid #ffffff1a; padding:8px 10px; border-radius:10px; color:var(--ink-dim);
+  }
+  .pulse{
+    animation:pulse .8s ease;
+  }
+  @keyframes pulse{
+    0%{ transform:scale(1); box-shadow:0 0 0 0 rgba(110,231,183,.6);}
+    60%{ transform:scale(1.03); box-shadow:0 0 0 12px rgba(110,231,183,0);}
+    100%{ transform:scale(1); box-shadow:none;}
+  }
+
+  .end-overlay{
+    position:absolute; inset:0; backdrop-filter: blur(4px);
+    background: rgba(10,14,30,.55); display:none; align-items:center; justify-content:center;
+  }
+  .end-card{
+    background:#0c122d; border:1px solid #ffffff1a; border-radius:16px; padding:20px; width:min(540px, 92vw);
+    box-shadow:var(--shadow); text-align:center;
+  }
+  .end-card h2{ margin-top:0 }
+  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .stat{
+    background:#0e1436; border:1px solid #ffffff14; border-radius:12px; padding:10px
+  }
+
+  /* Accessibility-only region */
+  .sr-only{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px, 1px, 1px, 1px); white-space:nowrap;}
+  @media (max-width: 930px){
+    .wrap{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>🎯 Note Ninja</h1>
+      <div class="subtitle">Read notes on treble & bass. Answer with buttons or press keys A–G.</div>
+    </div>
+    <button class="ghost" id="howToBtn" aria-haspopup="dialog">How to play</button>
+  </header>
+
+  <main class="wrap">
+    <!-- LEFT: Game board -->
+    <section class="card board" aria-labelledby="boardTitle">
+      <h2 id="boardTitle" class="sr-only">Game board</h2>
+      <div class="hud" role="status" aria-live="polite">
+        <div class="cell"><span class="label">Score</span><span class="value" id="score">0</span></div>
+        <div class="cell"><span class="label">Streak</span><span class="value" id="streak">0</span></div>
+        <div class="cell"><span class="label">Accuracy</span><span class="value"><span id="acc">100</span>%</span></div>
+        <div class="cell"><span class="label">Time</span><span class="value" id="time">60.0s</span></div>
+      </div>
+
+      <div class="staff-wrap" aria-label="Staff area">
+        <div class="clef-label" id="clefText">Treble clef</div>
+        <div class="clef-glyph" id="clefGlyph" aria-hidden="true">𝄞</div>
+        <!-- SVG staff; we will inject note + ledger lines -->
+        <svg id="staffSVG" viewBox="0 0 800 280" role="img" aria-labelledby="noteDesc">
+          <title id="noteDesc">Note display</title>
+          <!-- Staff lines -->
+          <g id="staffLines" stroke="white" stroke-opacity=".45" stroke-width="2" shape-rendering="crispEdges"></g>
+          <!-- Ledger lines -->
+          <g id="ledgers" stroke="white" stroke-width="2" stroke-linecap="round"></g>
+          <!-- Note group -->
+          <g id="noteGroup"></g>
+        </svg>
+        <div class="toast" id="toast">Press A…G to answer</div>
+      </div>
+
+      <div class="pad" role="group" aria-label="Answer pad">
+        <!-- Buttons A-G -->
+        <button class="btn" data-key="C" aria-keyshortcuts="C">C</button>
+        <button class="btn" data-key="D" aria-keyshortcuts="D">D</button>
+        <button class="btn" data-key="E" aria-keyshortcuts="E">E</button>
+        <button class="btn" data-key="F" aria-keyshortcuts="F">F</button>
+        <button class="btn" data-key="G" aria-keyshortcuts="G">G</button>
+        <button class="btn" data-key="A" aria-keyshortcuts="A">A</button>
+        <button class="btn" data-key="B" aria-keyshortcuts="B">B</button>
+      </div>
+
+      <div class="end-overlay" id="endOverlay" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+        <div class="end-card">
+          <h2 id="endTitle">Time!</h2>
+          <p id="endSummary">Nice run.</p>
+          <div class="grid2" style="margin:10px 0 16px">
+            <div class="stat"><strong>Score:</strong> <span id="endScore">0</span></div>
+            <div class="stat"><strong>Accuracy:</strong> <span id="endAcc">0%</span></div>
+          </div>
+          <button class="primary" id="againBtn">Play again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Settings -->
+    <aside class="card side" aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle" class="sr-only">Settings</h2>
+      <fieldset>
+        <legend>Game</legend>
+        <div class="rows">
+          <div class="row">
+            <label for="timeSel">Time limit</label>
+            <select id="timeSel">
+              <option value="30">30 sec</option>
+              <option value="60" selected>60 sec</option>
+              <option value="120">2 min</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="clefSel">Clef</label>
+            <select id="clefSel">
+              <option value="treble" selected>Treble</option>
+              <option value="bass">Bass</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="ledgerSel" title="How far outside the staff to allow notes">Ledger range</label>
+            <select id="ledgerSel">
+              <option value="0">On-staff only</option>
+              <option value="1" selected>±1 ledger line</option>
+              <option value="2">±2 ledger lines</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="soundTog">Sound</label>
+            <input id="soundTog" class="toggle" type="checkbox" checked>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="controls">
+        <button class="primary" id="startBtn">Start ▶</button>
+        <button class="ghost" id="skipBtn" title="Skip this note (no penalty)">Skip ↦</button>
+      </div>
+
+      <fieldset>
+        <legend>Tips</legend>
+        <ul style="margin:.2rem 0 .1rem 1rem; color:var(--ink-dim);">
+          <li>Use your keyboard: A–G</li>
+          <li>Spacebar: play note again</li>
+          <li>Enter: skip</li>
+        </ul>
+      </fieldset>
+    </aside>
+  </main>
+
+  <!-- Accessible live region for new questions -->
+  <div class="sr-only" aria-live="polite" id="ariaQuestion"></div>
+
+  <!-- How-to modal (lightweight) -->
+  <dialog id="howTo">
+    <form method="dialog" style="background:#0e1436; border:1px solid #ffffff22; color:var(--ink); padding:16px; border-radius:12px; max-width:min(640px, 92vw);">
+      <h3 style="margin-top:0">How to play</h3>
+      <p>Identify the note on the staff by picking its letter name (A–G). Choose the clef, ledger range, and time limit. Hit <b>Start</b>, then answer as many as you can before time runs out.</p>
+      <ul>
+        <li><b>Keyboard:</b> press A–G. <b>Space</b> replays the pitch. <b>Enter</b> skips.</li>
+        <li><b>Scoring:</b> +10 for correct (+bonus for speed), streak boosts score; wrong answers reset streak.</li>
+      </ul>
+      <button class="primary">Got it</button>
+    </form>
+  </dialog>
+
+<script>
+(() => {
+  // ========= Utilities: notes, clefs, math =========
+  const LETTERS = ["A","B","C","D","E","F","G"];
+  const OFFSETS12 = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}; // semitones in 12-TET within octave (naturals)
+
+  // A-based diatonic math to move by staff steps cleanly.
+  const L2I = {A:0,B:1,C:2,D:3,E:4,F:5,G:6}; // order A..G
+  const I2L = ["A","B","C","D","E","F","G"];
+
+  function toAOctave(letter, octaveC){ // convert to "A-based" octave number
+    return (letter === "A" || letter === "B") ? octaveC : octaveC - 1;
+  }
+  function fromDiatonicIndex(di){ // -> {letter, octave}
+    const aOct = Math.floor(di / 7);
+    const li = di % 7;
+    const letter = I2L[li];
+    const octaveC = (letter === "A" || letter === "B") ? aOct : aOct + 1;
+    return {letter, octave: octaveC};
+  }
+  function toDiatonicIndex(letter, octaveC){
+    const aOct = toAOctave(letter, octaveC);
+    return aOct * 7 + L2I[letter];
+  }
+  function midiOf(letter, octave){ // naturals only
+    return (octave + 1) * 12 + OFFSETS12[letter];
+  }
+  function freqOfMidi(m){ return 440 * Math.pow(2, (m - 69) / 12); }
+
+  // Clef models: bottom & top line diatonic indices
+  const CLEFS = {
+    treble: {
+      name: "Treble clef",
+      glyph: "𝄞",
+      bottomLine: toDiatonicIndex("E", 4), // E4
+      topLine: toDiatonicIndex("F", 5),    // F5
+      announce: "Treble"
+    },
+    bass: {
+      name: "Bass clef",
+      glyph: "𝄢",
+      bottomLine: toDiatonicIndex("G", 2), // G2
+      topLine: toDiatonicIndex("A", 3),    // A3
+      announce: "Bass"
+    }
+  };
+
+  // ========= DOM refs =========
+  const $ = s => document.querySelector(s);
+  const staffSVG = $("#staffSVG");
+  const staffLines = $("#staffLines");
+  const noteGroup = $("#noteGroup");
+  const ledgers = $("#ledgers");
+  const clefText = $("#clefText");
+  const clefGlyph = $("#clefGlyph");
+  const toast = $("#toast");
+  const ariaQ = $("#ariaQuestion");
+  const endOverlay = $("#endOverlay");
+
+  const scoreEl = $("#score"), streakEl = $("#streak"), accEl = $("#acc"), timeEl = $("#time");
+  const btns = [...document.querySelectorAll(".btn")];
+  const startBtn = $("#startBtn"), skipBtn = $("#skipBtn");
+  const timeSel = $("#timeSel"), clefSel = $("#clefSel"), ledgerSel = $("#ledgerSel"), soundTog = $("#soundTog");
+  const howTo = $("#howTo"), howToBtn = $("#howToBtn");
+  const againBtn = $("#againBtn"), endScore = $("#endScore"), endAcc = $("#endAcc"), endSummary = $("#endSummary");
+
+  // Draw static staff lines
+  const STAFF = {
+    left: 110, right: 760, // leaves room for clef glyph
+    baselineY: 200, // y of bottom line
+    gap: 26 // pixels between adjacent lines
+  };
+  function drawStaff(){
+    staffLines.innerHTML = "";
+    for(let i=0;i<5;i++){
+      const y = STAFF.baselineY - i * STAFF.gap;
+      const line = lineEl(STAFF.left, y, STAFF.right, y);
+      staffLines.appendChild(line);
+    }
+  }
+  function lineEl(x1,y1,x2,y2){
+    const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+    l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+    l.setAttribute("stroke", "white");
+    l.setAttribute("stroke-opacity", ".65");
+    l.setAttribute("stroke-width", "2");
+    return l;
+  }
+
+  // ========= Game state =========
+  let game = {
+    running:false,
+    target:null, // {letter, octave, clef, step}
+    score:0, streak:0, correct:0, total:0,
+    deadline:0, timerId:null, lastNoteAt:0
+  };
+
+  // ========= Audio =========
+  let ctx = null, master = null;
+  function ensureAudio(){
+    if(ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value = 0.22; master.connect(ctx.destination);
+  }
+  function beep(freq, duration=0.6){
+    if(!soundTog.checked) return;
+    ensureAudio();
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(1, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    o.connect(g).connect(master);
+    o.start(now); o.stop(now + duration + 0.05);
+  }
+  function errorBeep(){
+    if(!soundTog.checked) return;
+    ensureAudio();
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "square"; o.frequency.value = 220;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(.8, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+    o.connect(g).connect(master);
+    o.start(now); o.stop(now + 0.3);
+  }
+
+  // ========= Note generation =========
+  const rng = mulberry32(Date.now() ^ 0x9e3779b97f4a7c15n); // cheeky mix
+
+  function mulberry32(seed){
+    let t = Number(BigInt.asUintN(32, BigInt(seed) & 0xffffffffn) || 0);
+    return function(){
+      t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    }
+  }
+  function choice(arr){ return arr[Math.floor(rng()*arr.length)] }
+
+  function nextNote(){
+    const clefMode = clefSel.value; // treble | bass | both
+    const clefKey = (clefMode === "both") ? choice(["treble","bass"]) : clefMode;
+    const clef = CLEFS[clefKey];
+
+    const ledger = parseInt(ledgerSel.value,10);
+    const stepTop = CLEFS[clefKey].topLine - CLEFS[clefKey].bottomLine; // 8
+    const minStep = -(2*ledger + 1);           // include one space beyond
+    const maxStep = stepTop + (2*ledger + 1);  // include one space beyond
+    const step = Math.floor(rng() * (maxStep - minStep + 1)) + minStep;
+
+    const di = clef.bottomLine + step;
+    const {letter, octave} = fromDiatonicIndex(di);
+    const target = {letter, octave, clef: clefKey, step};
+
+    game.target = target;
+    game.lastNoteAt = performance.now();
+
+    renderClef(clef);
+    renderNote(target);
+    ariaQ.textContent = `${clef.announce} clef: new note ready`;
+    if(soundTog.checked){
+      const freq = freqOfMidi(midiOf(letter, octave));
+      // small delay so it doesn't clip on note redraw
+      setTimeout(() => beep(freq, 0.5), 80);
+    }
+  }
+
+  function renderClef(clef){
+    clefText.textContent = clef.name;
+    clefGlyph.textContent = clef.glyph;
+  }
+
+  function renderNote(target){
+    // clear previous
+    noteGroup.innerHTML = ""; ledgers.innerHTML = "";
+
+    const step = target.step;
+    const stepHeight = STAFF.gap / 2; // distance per diatonic step
+    const x = 450;
+    const y = STAFF.baselineY - step * stepHeight;
+
+    // Draw ledger lines if required (below or above)
+    const clef = CLEFS[target.clef];
+    const stepTop = clef.topLine - clef.bottomLine; // 8
+    // Below
+    if(step < 0){
+      for(let s = 0; s >= step; s--){
+        // Even steps are "lines" if bottom line is even (0)
+        if(s % 2 === 0 && s !== 0){
+          const ly = STAFF.baselineY - s * stepHeight;
+          ledgers.appendChild(ledgerAt(ly));
+        }
+      }
+    }
+    // Above
+    if(step > stepTop){
+      for(let s = stepTop + 2; s <= step; s+=2){
+        const ly = STAFF.baselineY - s * stepHeight;
+        ledgers.appendChild(ledgerAt(ly));
+      }
+    }
+
+    // Notehead (slight ellipse rotation)
+    const g = svgEl("g");
+    const head = svgEl("ellipse", {
+      cx:x, cy:y, rx:14, ry:10, fill:"white", transform:`rotate(-20 ${x} ${y})`
+    });
+
+    // Stem: up if note is below/at middle line (treble: B4), which is step <= 4
+    // middle line step for any clef = (top-bottom)/2 = 4
+    const stemUp = step <= 4;
+    const stemLength = 44;
+    const stemX = stemUp ? x+12 : x-12;
+    const stemY1 = y; const stemY2 = stemUp ? y - stemLength : y + stemLength;
+    const stem = svgEl("line", {
+      x1: stemX, y1: stemY1, x2: stemX, y2: stemY2,
+      stroke:"white", "stroke-width":3, "stroke-linecap":"round"
+    });
+
+    g.appendChild(head); g.appendChild(stem);
+    noteGroup.appendChild(g);
+
+    // Accessible title for screen readers
+    const pitchTitle = `${target.letter}${target.octave}`;
+    $("#noteDesc").textContent = `Note ${pitchTitle} on ${CLEFS[target.clef].name}`;
+  }
+
+  function ledgerAt(y){
+    const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    l.setAttribute("x1", 380); l.setAttribute("x2", 520);
+    l.setAttribute("y1", y); l.setAttribute("y2", y);
+    l.setAttribute("stroke","white"); l.setAttribute("stroke-width","2.5");
+    return l;
+  }
+  function svgEl(tag, attrs={}){
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for(const [k,v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+  }
+
+  // ========= Game flow =========
+  function resetStats(){
+    game.score = 0; game.streak = 0; game.correct = 0; game.total = 0;
+    scoreEl.textContent = "0"; streakEl.textContent = "0"; accEl.textContent = "100";
+  }
+  function startGame(){
+    resetStats();
+    drawStaff();
+    game.running = true;
+    endOverlay.style.display = "none";
+    const seconds = parseInt(timeSel.value,10);
+    game.deadline = performance.now() + seconds*1000;
+    if(game.timerId) cancelAnimationFrame(game.timerId);
+    tick();
+    nextNote();
+    toast.textContent = "Go!";
+    toast.classList.add("pulse");
+    setTimeout(()=>toast.classList.remove("pulse"), 500);
+  }
+  function endGame(){
+    game.running = false;
+    timeEl.textContent = "0.0s";
+    endScore.textContent = game.score;
+    const acc = game.total ? Math.round(100 * game.correct / game.total) : 0;
+    endAcc.textContent = `${acc}%`;
+    endSummary.textContent = flavorSummary(acc, game.score, game.streak);
+    endOverlay.style.display = "flex";
+  }
+  function flavorSummary(acc, score, streak){
+    if(acc >= 95 && score > 250) return "Legend status. The staff fears you.";
+    if(acc >= 85) return "Clean reading! Keep pushing tempo.";
+    if(acc >= 70) return "Nice! Accuracy up a bit and you’re golden.";
+    return "Warm up complete—go again and climb!";
+  }
+
+  function tick(){
+    const now = performance.now();
+    const remaining = Math.max(0, game.deadline - now);
+    timeEl.textContent = (remaining/1000).toFixed(1) + "s";
+    if(remaining <= 0){ endGame(); return; }
+    game.timerId = requestAnimationFrame(tick);
+  }
+
+  function answer(letter){
+    if(!game.running || !game.target) return;
+    const t = game.target;
+    const isRight = (letter === t.letter);
+    game.total++;
+
+    if(isRight){
+      game.correct++;
+      game.streak++;
+      const dt = Math.min(1500, performance.now() - game.lastNoteAt); // time to answer
+      const bonus = Math.max(1, Math.round(12 - dt/150)); // 1..12
+      game.score += 10 + bonus + Math.min(15, Math.floor(game.streak/3)); // streak juice
+      scoreEl.textContent = game.score;
+      streakEl.textContent = game.streak;
+
+      blinkButton(letter, true);
+      toast.textContent = `✔️ ${t.letter}${t.octave}`;
+      toast.classList.add("pulse");
+      setTimeout(()=>toast.classList.remove("pulse"), 400);
+
+      nextNote();
+    } else {
+      game.streak = 0; streakEl.textContent = "0";
+      blinkButton(letter, false);
+      errorBeep();
+      toast.textContent = `✖ Wrong: it was ${t.letter}${t.octave}`;
+    }
+    const acc = Math.round(100 * game.correct / game.total);
+    accEl.textContent = isFinite(acc) ? acc : 100;
+  }
+
+  function blinkButton(letter, ok){
+    const btn = btns.find(b => b.dataset.key === letter);
+    if(!btn) return;
+    btn.classList.remove("good","bad");
+    // force reflow to restart animation-ish outline
+    void btn.offsetWidth;
+    btn.classList.add(ok ? "good" : "bad");
+    setTimeout(()=>btn.classList.remove("good","bad"), 300);
+  }
+
+  // ========= Events =========
+  btns.forEach(b => b.addEventListener("click", () => answer(b.dataset.key)));
+
+  document.addEventListener("keydown", (e) => {
+    if(e.repeat) return;
+    const k = e.key.toUpperCase();
+    if(LETTERS.includes(k)){
+      e.preventDefault();
+      answer(k);
+    } else if(e.key === " "){ // replay note
+      e.preventDefault();
+      if(game.target && soundTog.checked){
+        const f = freqOfMidi(midiOf(game.target.letter, game.target.octave));
+        beep(f, 0.6);
+      }
+    } else if(e.key === "Enter"){
+      e.preventDefault(); skip();
+    }
+  });
+
+  startBtn.addEventListener("click", startGame);
+  againBtn.addEventListener("click", startGame);
+  skipBtn.addEventListener("click", skip);
+
+  function skip(){
+    if(!game.running) return;
+    toast.textContent = "Skipped";
+    nextNote();
+  }
+
+  // Persist settings
+  const LSKEY = "note-ninja-settings-v1";
+  function saveSettings(){
+    const data = {
+      time: timeSel.value,
+      clef: clefSel.value,
+      ledger: ledgerSel.value,
+      sound: soundTog.checked
+    };
+    localStorage.setItem(LSKEY, JSON.stringify(data));
+  }
+  function loadSettings(){
+    try{
+      const s = JSON.parse(localStorage.getItem(LSKEY)||"{}");
+      if(s.time) timeSel.value = s.time;
+      if(s.clef) clefSel.value = s.clef;
+      if(s.ledger) ledgerSel.value = s.ledger;
+      if(typeof s.sound === "boolean") soundTog.checked = s.sound;
+    }catch{}
+  }
+  [timeSel, clefSel, ledgerSel, soundTog].forEach(el => el.addEventListener("change", saveSettings));
+  loadSettings();
+
+  // How-to
+  howToBtn.addEventListener("click", () => {
+    if(typeof howTo.showModal === "function") howTo.showModal();
+    else alert("Identify the note by pressing A–G. Space = play, Enter = skip.");
+  });
+
+  // Initialize
+  drawStaff();
+  renderClef(CLEFS["treble"]);
+  // draw a demo whole note on middle staff for looks
+  game.target = {letter:"G", octave:4, clef:"treble", step:2}; // G4 (2nd line)
+  renderNote(game.target);
+
+})();
+</script>
+</body>
+</html>
