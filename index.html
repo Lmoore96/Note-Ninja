@@ -60,10 +60,18 @@
   .clef-label{
     position:absolute; left:14px; top:10px; color:var(--ink-dim); font-size:.9rem
   }
-  .clef-glyph{
-    position:absolute; left:12px; top:40px; font-size:84px; line-height:1; opacity:.27;
-    font-family: "Bravura","Noto Music","DejaVu Sans","Segoe UI Symbol",system-ui;
-    user-select:none; pointer-events:none;
+.clef-glyph{
+  position:absolute;
+  /* we’ll set left/top from JS so it lines up with the staff */
+  left: 0; top: 0;
+  font-size: 110px; line-height: 1;
+  color: #fff;             /* white clef */
+  opacity: 1;              /* no fade */
+  z-index: 3;              /* above the SVG lines */
+  pointer-events: none;    /* not clickable */
+  font-family: "Bravura","Noto Music","DejaVu Sans","Segoe UI Symbol",system-ui;
+}
+
   }
  svg{ width:100%; height:auto; aspect-ratio: 800 / 280; display:block; }
 
@@ -444,7 +452,7 @@ function mulberry32(seed) {
     game.target = target;
     game.lastNoteAt = performance.now();
 
-    renderClef(clef);
+    renderClef(clefKey);
     renderNote(target);
     ariaQ.textContent = `${clef.announce} clef: new note ready`;
     if(soundTog.checked){
@@ -454,10 +462,34 @@ function mulberry32(seed) {
     }
   }
 
-  function renderClef(clef){
-    clefText.textContent = clef.name;
-    clefGlyph.textContent = clef.glyph;
+// NEW: place clef on staff and make it white/foreground
+function renderClef(clefKey){
+  const clef = CLEFS[clefKey];
+  clefText.textContent = clef.name;
+  clefGlyph.textContent = clef.glyph;
+
+  // Put the clef slightly inside the staff area
+  const x = STAFF.left + 8;           // a bit inside the left edge of lines
+  clefGlyph.style.left = x + "px";
+  clefGlyph.style.color = "#fff";
+  clefGlyph.style.opacity = "1";
+  clefGlyph.style.zIndex = 3;
+
+  // Size & vertical anchor per clef:
+  // Treble “wraps” the 2nd line (G); Bass dots surround the 4th line (F).
+  const lineY = i => STAFF.baselineY - i * STAFF.gap;
+  if (clefKey === "treble") {
+    const size = 120;
+    clefGlyph.style.fontSize = size + "px";
+    const targetY = lineY(1);                 // 2nd line from bottom
+    clefGlyph.style.top = (targetY - size * 0.60) + "px";
+  } else { // bass
+    const size = 110;
+    clefGlyph.style.fontSize = size + "px";
+    const targetY = lineY(3);                 // 4th line from bottom
+    clefGlyph.style.top = (targetY - size * 0.55) + "px";
   }
+}
 
   function renderNote(target){
     // clear previous
@@ -675,7 +707,7 @@ function mulberry32(seed) {
   renderClef(CLEFS["treble"]);
   // draw a demo whole note on middle staff for looks
   game.target = {letter:"G", octave:4, clef:"treble", step:2}; // G4 (2nd line)
-  renderNote(game.target);
+  renderClef("treble");
 
 })();
 </script>
